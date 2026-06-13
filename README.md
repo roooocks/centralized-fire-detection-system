@@ -75,7 +75,7 @@ IoT 센서의 데이터와 LoRa 통신을 활용한 중앙 집중 화염 감지 
 ### 직접 개발
 - 실제 보드와 센서의 회로 구성 후 연결
 - Heltec LoRa 32 V3 센서 제어 코드 작성
-- Heltec LoRa 32 V3 ↔ Gateway 데이터 송수신 구현
+- Heltec LoRa 32 V3 ➔ Gateway 데이터 송수신 구현
 
 ### 프로젝트 기여
 - 웹 디자인 와이어 프레임 제작
