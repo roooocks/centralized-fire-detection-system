@@ -1,0 +1,1956 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>G1B4 중앙 집중 화재 감지기</title>
+    <style>
+        :root {
+            --bg-color: #F3F6F9;
+            --text-dark: #2C3E50;
+            --text-light: #7F8C8D;
+            --white: #FFFFFF;
+            --border: #E0E6ED;
+
+            /* 상태 색상 */
+            --status-safe: #2ECC71;
+            /* 초록 - 정상 */
+            --status-warn: #F1C40F;
+            /* 노랑 - 의심 */
+            --status-fire: #E74C3C;
+            /* 빨강 - 화재 */
+            --status-new: #607D8B;
+            /* 회색 - 미수신 */
+            --status-alive: #2ECC71;
+            /* 초록 - 생존 */
+
+            /* 상단 메뉴 버튼 붉은색 */
+            --btn-red: #DA291C;
+            --btn-red-hover: #B71C1C;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Pretendard', -apple-system, sans-serif;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+            overflow: hidden;
+        }
+
+        /* ----- 권한 제어 클래스 ----- */
+        body:not(.is-logged-in) .auth-user {
+            display: none !important;
+        }
+
+        body.is-logged-in .auth-guest {
+            display: none !important;
+        }
+
+        /* 공통 상태 컬러 클래스 (도면 & 카드 점 모두 적용) */
+        .safe {
+            background-color: var(--status-safe) !important;
+        }
+
+        .alive {
+            background-color: var(--status-alive) !important;
+        }
+
+        .warn {
+            background-color: var(--status-warn) !important;
+        }
+
+        .fire {
+            background-color: var(--status-fire) !important;
+        }
+
+        .new {
+            background-color: var(--status-new) !important;
+        }
+
+        /* 좌측 사이드바 */
+        .sidebar {
+            width: 250px;
+            background-color: var(--white);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 20px 0;
+        }
+
+        .sidebar-header {
+            font-size: 24px;
+            font-weight: 800;
+            padding: 10px 20px 30px 20px;
+            color: var(--text-dark);
+        }
+
+        .menu-title {
+            font-weight: 700;
+            padding: 10px 20px;
+            color: var(--text-light);
+            display: flex;
+            justify-content: space-between;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        #floorArrow {
+            transition: transform 0.3s ease;
+        }
+
+        #floorArrow.rotated {
+            transform: rotate(-90deg);
+        }
+
+        .submenu-container {
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            max-height: 500px;
+        }
+
+        .submenu-container.collapsed {
+            max-height: 0;
+        }
+
+        .menu-item {
+            padding: 10px 20px 10px 30px;
+            cursor: pointer;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background 0.2s;
+        }
+
+        .menu-item:hover {
+            background-color: #F0F4F8;
+        }
+
+        .menu-item.active {
+            background-color: #E2E8F0;
+            font-weight: bold;
+            color: #5c2d91;
+        }
+
+        .floor-name {
+            flex: 1;
+        }
+
+        .edit-icon {
+            color: #AAB7C4;
+            font-size: 13px;
+            margin-left: 5px;
+            padding: 2px 5px;
+            border-radius: 4px;
+        }
+
+        .edit-icon:hover {
+            background-color: #E0E6ED;
+        }
+
+        /* 메인 컨텐츠 영역 */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 40px;
+            background-color: var(--white);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header-title {
+            font-size: 20px;
+            font-weight: 800;
+            color: #5c2d91;
+        }
+
+        .header-btns {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-top {
+            padding: 8px 14px;
+            background-color: var(--btn-red);
+            color: var(--white);
+            border: 1px solid #C62828;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-top:hover {
+            background-color: var(--btn-red-hover);
+        }
+
+        .btn-logout {
+            background-color: #333;
+            border: 1px solid #222;
+        }
+
+        .btn-logout:hover {
+            background-color: #000;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 20px;
+            padding: 15px 40px 0 40px;
+            background-color: var(--white);
+            border-bottom: 2px solid var(--border);
+        }
+
+        .tab {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-light);
+            cursor: pointer;
+            padding: 10px 10px;
+            transition: color 0.2s;
+        }
+
+        .tab.active {
+            color: var(--text-dark);
+            border-bottom: 3px solid #8CA1B6;
+        }
+
+        .view-section {
+            display: none;
+            padding: 30px 40px;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .view-section.active {
+            display: block;
+        }
+
+        .floor-map {
+            display: none;
+            width: 100%;
+            height: 100%;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        .floor-map.active {
+            display: block;
+        }
+
+        /* 도면 영역 */
+        .map-area {
+            width: 100%;
+            height: 600px;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+            background-image: radial-gradient(#d1d8e0 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        /* 센서 동그라미 */
+        .sensor {
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            cursor: pointer;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            z-index: 10;
+            transition: transform 0.1s;
+        }
+
+        .sensor:hover {
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+
+        .sensor-label {
+            position: absolute;
+            background: var(--white);
+            border: 1px solid #999;
+            padding: 3px 6px;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+            top: 15px;
+            left: 15px;
+            z-index: 9;
+            pointer-events: none;
+        }
+
+        /* 센서 팝업창 */
+        .sensor-popup {
+            position: absolute;
+            width: 230px;
+            background: var(--white);
+            border: 1px solid #ccc;
+            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            display: none;
+            border-radius: 4px;
+        }
+
+        .sensor-popup.show {
+            display: block;
+        }
+
+        .popup-header {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .popup-close {
+            cursor: pointer;
+            color: #888;
+            font-weight: normal;
+        }
+
+        .popup-body {
+            padding: 15px;
+            font-size: 13px;
+            line-height: 2;
+        }
+
+        .info-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .popup-footer {
+            padding: 0 15px 15px 15px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-action {
+            flex: 1;
+            padding: 6px 0;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            border-radius: 2px;
+        }
+
+        .btn-edit {
+            background-color: #2e7d32;
+        }
+
+        .btn-delete {
+            background-color: #c62828;
+        }
+
+        .btn-cancel {
+            background-color: #888;
+        }
+
+        /* 화재 알림 */
+        .fire-alert {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--white);
+            border: 1px solid #666;
+            padding: 15px;
+            width: 300px;
+            z-index: 9999;
+            box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+
+        .fire-alert.show {
+            display: block;
+        }
+
+        .fire-alert-header {
+            font-weight: bold;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            color: var(--status-fire);
+        }
+
+        .fire-alert-stack {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 10px;
+        }
+
+        .fire-alert-item {
+            background: var(--white);
+            border: 1px solid #666;
+            padding: 15px;
+            width: 300px;
+            box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+        }
+
+        /* --- 모달창 공통 CSS --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #fff;
+            width: 350px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            border: 1px solid #666;
+        }
+
+        .modal-header {
+            padding: 15px;
+            font-weight: bold;
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+            font-size: 15px;
+            background: #F8FAFC;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-footer {
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            border-top: 1px solid #ddd;
+            background: #F8FAFC;
+        }
+
+        .input-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+
+        .input-row label {
+            width: 80px;
+            font-weight: bold;
+        }
+
+        .input-row input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            font-size: 13px;
+            border-radius: 4px;
+        }
+
+        .input-row input:disabled {
+            background-color: #eee;
+        }
+
+        /* --- 카드 레이아웃 (상태/기록 탭) --- */
+        .filter-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        .filter-bar select {
+            padding: 8px 10px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+            width: 120px;
+        }
+
+        .search-box {
+            display: flex;
+            align-items: center;
+            flex: 1;
+            max-width: 400px;
+            border: 1px solid #ccc;
+            background: #fff;
+        }
+
+        .search-box input {
+            border: none;
+            padding: 8px 10px;
+            flex: 1;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .search-box span {
+            padding: 0 10px;
+            font-size: 16px;
+            color: #888;
+            cursor: pointer;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .sensor-card {
+            display: flex;
+            border: 1px solid #333;
+            background: #fff;
+            padding: 15px;
+            align-items: center;
+            gap: 20px;
+            position: relative;
+            border-radius: 6px;
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+            transition: 0.2s;
+        }
+
+        .sensor-card.status-alive {
+            border: 2px solid var(--status-alive);
+            box-shadow: 0 8px 18px rgba(46, 204, 113, 0.25);
+        }
+
+        .sensor-card.status-warn {
+            border: 2px solid var(--status-warn);
+            box-shadow: 0 8px 18px rgba(241, 196, 15, 0.28);
+        }
+
+        .sensor-card.status-fire {
+            border: 2px solid var(--status-fire);
+            box-shadow: 0 8px 18px rgba(231, 76, 60, 0.32);
+        }
+
+        .sensor-card.status-new {
+            border: 2px solid var(--status-new);
+            box-shadow: 0 8px 18px rgba(96, 125, 139, 0.20);
+        }
+
+        .mini-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #fff;
+            margin-left: 6px;
+        }
+
+        .badge-alive {
+            background: var(--status-alive);
+        }
+
+        .badge-warn {
+            background: var(--status-warn);
+            color: #222;
+        }
+
+        .badge-fire {
+            background: var(--status-fire);
+        }
+
+        .card-icon svg {
+            width: 50px;
+            height: 50px;
+            fill: none;
+            stroke: #333;
+            stroke-width: 1.5;
+        }
+
+        .card-info {
+            flex: 1;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .card-id-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+        }
+
+        /* 카드 내 상태 동그라미 */
+        .dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .empty-message {
+            text-align: center;
+            padding: 50px;
+            color: #888;
+            grid-column: 1 / -1;
+        }
+    </style>
+</head>
+
+<body>
+
+    <input type="file" id="fileUploadInput" accept="image/*" style="display:none;" onchange="handleFileUpload(event)">
+
+    <div class="sidebar">
+        <div class="sidebar-header">G1B4</div>
+        <div>
+            <div class="menu-title" onclick="toggleFloorMenu()">층별 보기 <span id="floorArrow">▼</span></div>
+            <!-- 자바스크립트로 동적 렌더링 될 메뉴 영역 -->
+            <div id="floorSubMenu" class="submenu-container"></div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <div class="header-title"><span id="currentFloorHeader">1층</span> &nbsp; <span style="font-weight: 900;">KG
+                    인테리어뱅크</span></div>
+            <div class="header-btns">
+                <button class="btn-top" style="display:none;" onclick="checkDbConnection()">DB 연결 확인</button>
+                <button class="btn-top auth-guest" onclick="location.href='login.html'">로그인</button>
+                <button id="btnEditMode" class="btn-top auth-user" onclick="toggleEditMode()">감지기 편집</button>
+                <button class="btn-top auth-user" onclick="openAddModal()">감지기 추가</button>
+                <button class="btn-top auth-user" onclick="document.getElementById('fileUploadInput').click()">도면
+                    업로드</button>
+                <button class="btn-top btn-logout auth-user" onclick="handleLogout()">로그아웃</button>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('main')">메인 도면</div>
+            <div class="tab" onclick="switchTab('status')">감지기 상태</div>
+            <div class="tab" onclick="switchTab('records')">화재 기록</div>
+        </div>
+
+        <!-- 1. 도면 뷰 -->
+        <div id="view-main" class="view-section active">
+            <!-- 자바스크립트로 동적 렌더링 될 도면 영역 -->
+            <div class="map-area" id="mapArea">
+
+                <!-- 팝업창 -->
+                <div class="sensor-popup" id="sensorPopup">
+                    <div class="popup-header">
+                        <span id="popTitle">타이틀</span><span class="popup-close" onclick="closePopup()">X</span>
+                    </div>
+                    <div class="popup-body">
+                        <div class="info-row">ID : <span id="popId">--</span></div>
+                        <div class="info-row">층수 : <span id="popFloor">--</span></div>
+                        <div class="info-row">상태 : <span id="popStatus">--</span></div>
+                        <div class="info-row">온도 : <span id="popTemp">--</span></div>
+                        <div class="info-row">배터리 : <span id="popBattery">--</span></div>
+                        <div class="info-row">불꽃 : <span id="popFlame">--</span></div>
+                    </div>
+                    <div class="popup-footer auth-user">
+                        <button class="btn-action btn-edit" onclick="editSensorData('title')">이름 수정</button>
+                        <button class="btn-action btn-delete" onclick="deleteSensor()">삭제</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 2. 감지기 상태 뷰 (카드형 레이아웃) -->
+        <div id="view-status" class="view-section">
+            <div class="filter-bar">
+                <select id="filterFloorStatus" onchange="renderStatusCards()">
+                    <option value="all">전체 층 ▼</option>
+                </select>
+                <select id="filterStatus" onchange="renderStatusCards()">
+                    <option value="all">센서 상태 ▼</option>
+                    <option value="생존">생존 (초록)</option>
+                    <option value="화재 의심">화재 의심 (노랑)</option>
+                    <option value="화재">화재 (빨강)</option>
+                    <option value="미수신">미수신 (회색)</option>
+                </select>
+                <div class="search-box">
+                    <input type="text" id="searchStatus" placeholder="센서 ID 또는 위치 이름 검색" onkeyup="renderStatusCards()">
+                    <span>🔍</span>
+                </div>
+            </div>
+            <div class="card-grid" id="statusCardGrid"></div>
+        </div>
+
+        <!-- 3. 화재 기록 뷰 (카드형 레이아웃) -->
+        <div id="view-records" class="view-section">
+            <div class="filter-bar">
+                <input type="date" id="filterDateRecords" onchange="loadFireRecordsFromDB()"
+                    style="padding:8px 10px; border:1px solid #ccc; font-size:14px;">
+                <select id="filterTypeRecords" onchange="loadFireRecordsFromDB()">
+                    <option value="all">전체 분류 ▼</option>
+                    <option value="화재">실제 화재</option>
+                    <option value="화재 의심">화재 의심</option>
+                </select>
+                <div class="search-box">
+                    <input type="text" id="searchRecords" placeholder="위치 이름 검색" onkeyup="loadFireRecordsFromDB()">
+                    <span>🔍</span>
+                </div>
+            </div>
+            <div class="card-grid" id="recordCardGrid"></div>
+        </div>
+
+        <!-- 우측 하단 화재 알림: 탭이 바뀌어도 보이도록 메인 컨텐츠 바로 아래에 배치 -->
+        <div class="fire-alert-stack" id="fireAlertStack"></div>
+        <audio id="sirenAudio" loop preload="auto">
+            <source src="./sounds/siren.mp3" type="audio/mpeg">
+        </audio>
+    </div>
+
+    <!-- 감지기 추가 모달창 -->
+    <div id="addSensorModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">감지기 추가하기</div>
+            <div class="modal-body">
+                <div class="input-row">
+                    <label>ID :</label>
+                    <input type="text" id="newSensorId" placeholder="힌트) ABC123" autocomplete="off">
+                </div>
+                <div class="input-row">
+                    <label>층수 :</label>
+                    <input type="text" id="newSensorFloor" disabled>
+                </div>
+                <div class="input-row">
+                    <label>위치 이름 :</label>
+                    <input type="text" id="newSensorTitle" placeholder="예) 1층 회의실" autocomplete="off">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-action btn-edit" style="padding: 10px; font-size:13px;"
+                    onclick="submitAddSensor()">추가하기</button>
+                <button class="btn-action btn-cancel" style="padding: 10px; font-size:13px;"
+                    onclick="closeAddModal()">취소하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 공통 알림/입력/확인 커스텀 모달 (이쁜 창) -->
+    <div id="customModal" class="modal-overlay">
+        <div class="modal-content" style="width: 320px;">
+            <div class="modal-header" id="customModalTitle" style="color:var(--text-dark);">알림</div>
+            <div class="modal-body" style="text-align: center; padding: 25px 20px;">
+                <div id="customModalMessage"
+                    style="margin-bottom: 15px; font-size: 14px; word-break: keep-all; line-height: 1.5;">메시지</div>
+                <input type="text" id="customModalInput"
+                    style="width:100%; padding:10px; border:1px solid #ccc; border-radius:4px; display:none;"
+                    autocomplete="off">
+            </div>
+            <div class="modal-footer" id="customModalFooter" style="padding: 10px 15px 15px; display: flex; gap: 10px;">
+                <!-- 버튼이 JavaScript로 주입됩니다 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 0. 커스텀 팝업 (예쁜 모달창) 시스템
+        // ==========================================
+        let currentModalResolve = null;
+
+        function showCustomModal(type, title, message, defaultValue = '') {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('customModal');
+                const titleEl = document.getElementById('customModalTitle');
+                const msgEl = document.getElementById('customModalMessage');
+                const inputEl = document.getElementById('customModalInput');
+                const footerEl = document.getElementById('customModalFooter');
+
+                titleEl.innerText = title;
+                msgEl.innerText = message;
+                inputEl.style.display = 'none';
+                inputEl.value = '';
+                footerEl.innerHTML = '';
+
+                if (type === 'prompt') {
+                    titleEl.style.color = 'var(--text-dark)';
+                    inputEl.style.display = 'block';
+                    inputEl.value = defaultValue;
+                    footerEl.innerHTML = `
+                        <button class="btn-action btn-edit" style="padding: 10px; font-size:13px;" onclick="closeCustomModal(true, 'prompt')">확인</button>
+                        <button class="btn-action btn-cancel" style="padding: 10px; font-size:13px;" onclick="closeCustomModal(false, 'prompt')">취소</button>
+                    `;
+                } else if (type === 'confirm') {
+                    titleEl.style.color = 'var(--status-fire)'; // 빨간 글씨
+                    footerEl.innerHTML = `
+                        <button class="btn-action btn-delete" style="padding: 10px; font-size:13px;" onclick="closeCustomModal(true, 'confirm')">예 (삭제)</button>
+                        <button class="btn-action btn-cancel" style="padding: 10px; font-size:13px;" onclick="closeCustomModal(false, 'confirm')">아니오</button>
+                    `;
+                } else { // alert
+                    titleEl.style.color = 'var(--text-dark)';
+                    footerEl.innerHTML = `
+                        <button class="btn-action btn-edit" style="padding: 10px; font-size:13px;" onclick="closeCustomModal(true, 'alert')">확인</button>
+                    `;
+                }
+
+                modal.classList.add('show');
+                if (type === 'prompt') inputEl.focus();
+
+                currentModalResolve = resolve;
+            });
+        }
+
+        function closeCustomModal(isConfirm, type) {
+            document.getElementById('customModal').classList.remove('show');
+            const inputVal = document.getElementById('customModalInput').value;
+
+            if (currentModalResolve) {
+                if (type === 'prompt') currentModalResolve(isConfirm ? inputVal : null);
+                else currentModalResolve(isConfirm);
+                currentModalResolve = null;
+            }
+        }
+
+        // ==========================================
+        // 1. 핵심 데이터 (DB 연동)
+        // ==========================================
+        const API_BASE = 'http://localhost:3000';
+
+        const db = {
+            floors: [],
+            floorMap: {},
+            currentFloor: '',
+            sensors: [],
+            records: [],
+            backgrounds: {}
+        };
+
+        function dbStatusToKorean(status) {
+            if (status === 'active') return '생존';
+            if (status === 'suspect') return '화재 의심';
+            if (status === 'alert') return '화재';
+            if (status === 'disconnect') return '미수신';
+            return status || '미수신';
+        }
+
+        function koreanStatusToDb(status) {
+            if (status === '생존') return 'active';
+            if (status === '화재 의심' || status === '화재의심') return 'suspect';
+            if (status === '화재') return 'alert';
+            if (status === '미수신') return 'disconnect';
+            return status || 'disconnect';
+        }
+
+        function isSensorDisconnectedByTime(value) {
+            if (!value) return true;
+
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return true;
+
+            return Date.now() - date.getTime() > 3 * 60 * 1000;
+        }
+
+        function getApiData(result) {
+            if (Array.isArray(result)) return result;
+            return result.data || [];
+        }
+
+        let isEditMode = false;
+        let draggedSensorId = null;
+        let currentPopupSensorId = null;
+        // ==========================================
+        // 2. 초기화 및 렌더링 로직
+        // ==========================================
+        document.addEventListener("DOMContentLoaded", async function () {
+            // 로그인하지 않은 사용자는 로그인 페이지로 이동
+            if (localStorage.getItem('isLoggedIn') !== 'true') {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            document.body.classList.add('is-logged-in');
+            await loadInitialData();
+        });
+
+        async function loadInitialData() {
+            await loadFloorsFromDB();
+            await loadSensorsFromDB();
+            db.records = [];
+            renderAll();
+        }
+
+        async function loadFloorsFromDB() {
+            try {
+                const res = await fetch(`${API_BASE}/api/floors`);
+                const result = await res.json();
+                const floors = getApiData(result);
+
+                db.floorMap = {};
+                db.backgrounds = {};
+                db.floors = floors.map(f => {
+                    db.floorMap[f.name] = f.id;
+                    if (f.image) db.backgrounds[f.name] = f.image;
+                    return f.name;
+                });
+
+                if (!db.currentFloor && db.floors.length > 0) {
+                    db.currentFloor = db.floors[0];
+                }
+            } catch (err) {
+                console.error('층 목록 조회 실패:', err);
+                db.floors = [];
+            }
+        }
+
+        async function loadSensorsFromDB() {
+            try {
+                const res = await fetch(`${API_BASE}/api/sensors`);
+                const result = await res.json();
+                const sensors = getApiData(result);
+
+                db.sensors = sensors.map(s => {
+                    const sensorTime = s.received_at || s.last_ping || '';
+                    const status = isSensorDisconnectedByTime(sensorTime)
+                        ? '미수신'
+                        : (s.status_label || dbStatusToKorean(s.status));
+
+                    return {
+                        id: s.device_id,
+                        floor: s.floor_name || '',
+                        floor_id: s.floor_id || null,
+                        title: s.description || '-',
+                        status,
+                        top: Number(s.y ?? 50),
+                        left: Number(s.x ?? 50),
+                        time: sensorTime || '-',
+                        temp: s.temp_val ?? '-',
+                        battery: s.battery_level ?? s.bp ?? '-',
+                        flame: s.flame_val ? '감지' : '미감지'
+                    };
+                });
+            } catch (err) {
+                console.error('감지기 목록 조회 실패:', err);
+                db.sensors = [];
+            }
+        }
+
+        async function loadFireRecordsFromDB() {
+            try {
+                const date = document.getElementById('filterDateRecords')?.value || '';
+                const type = document.getElementById('filterTypeRecords')?.value || 'all';
+                const keyword = document.getElementById('searchRecords')?.value.trim() || '';
+
+                const params = new URLSearchParams();
+
+                if (date) params.append('date', date);
+                if (type && type !== 'all') params.append('type', type);
+                if (keyword) params.append('keyword', keyword);
+
+                const res = await fetch(`${API_BASE}/api/fire-records?${params.toString()}`);
+                const result = await res.json();
+                const records = getApiData(result);
+
+                db.records = records.map(r => ({
+                    id: r.id,
+                    device_id: r.device_id,
+                    floor: r.floor || r.floor_name || '-',
+                    title: r.title || r.location || r.description || '-',
+                    location: r.location || r.description || '-',
+                    time: r.time || r.created_at || r.received_at || '-',
+                    temp: r.temp ?? r.temp_val ?? '-',
+                    flame: r.flame || (r.flame_val ? '감지' : '미감지'),
+                    type: r.type || dbStatusToKorean(r.status),
+                    status: r.status
+                }));
+
+                renderRecordCards();
+            } catch (err) {
+                console.error('화재 기록 조회 실패:', err);
+                const grid = document.getElementById('recordCardGrid');
+                if (grid) grid.innerHTML = `<div class="empty-message">데이터 조회 실패</div>`;
+            }
+        }
+
+        async function checkDbConnection() {
+            try {
+                const res = await fetch(`${API_BASE}/api/db-test`);
+                const result = await res.json();
+                await showCustomModal('alert', 'DB 연결 확인', result.message || 'DB 연결 성공');
+            } catch (err) {
+                await showCustomModal('alert', 'DB 연결 실패', err.message);
+            }
+        }
+
+        function renderAll() {
+            renderSidebar();
+            renderFilters();
+            renderMapAreas();
+            renderStatusCards();
+            renderRecordCards();
+            document.getElementById('currentFloorHeader').innerText = db.currentFloor;
+            checkFireAlert();
+        }
+
+        function formatDateTimeNoSeconds(value) {
+            if (!value || value === '-') return '-';
+            const date = new Date(value);
+            if (!Number.isNaN(date.getTime())) {
+                const parts = new Intl.DateTimeFormat('ko-KR', {
+                    timeZone: 'Asia/Seoul',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                }).formatToParts(date);
+                const getPart = type => parts.find(part => part.type === type)?.value || '';
+
+                return `${getPart('year')}-${getPart('month')}-${getPart('day')} ${getPart('hour')}:${getPart('minute')}`;
+            }
+
+            const text = String(value).replace('T', ' ');
+            const m = text.match(/(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})/);
+            if (m) return `${m[1]} ${m[2]}`;
+            return text.replace(/:\d{2}($|\s)/, '$1');
+        }
+
+        function formatDateOnlyKorean(value) {
+            const formatted = formatDateTimeNoSeconds(value);
+            return formatted === '-' ? '-' : formatted.slice(0, 10);
+        }
+
+        function getTodayDateTime() {
+            const d = new Date();
+            const pad = n => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        }
+
+        function isFlameDetected(value) {
+            return value === true || value === 'true' || value === 1 || value === '1';
+        }
+
+        function getPersistedFireAlerts() {
+            try {
+                return JSON.parse(localStorage.getItem('activeFireAlerts') || '[]');
+            } catch {
+                return [];
+            }
+        }
+
+        function savePersistedFireAlerts(alerts) {
+            const unique = [];
+            alerts.forEach(alert => {
+                if (!alert || !alert.id) return;
+                const index = unique.findIndex(item => item.id === alert.id);
+                if (index >= 0) unique[index] = { ...unique[index], ...alert };
+                else unique.push(alert);
+            });
+            localStorage.setItem('activeFireAlerts', JSON.stringify(unique));
+        }
+
+        function getDismissedFireAlertIds() {
+            try {
+                return JSON.parse(localStorage.getItem('dismissedFireAlertIds') || '[]');
+            } catch {
+                return [];
+            }
+        }
+
+        function saveDismissedFireAlertIds(ids) {
+            localStorage.setItem('dismissedFireAlertIds', JSON.stringify([...new Set(ids.filter(Boolean))]));
+        }
+
+        function removeDismissedFireAlertId(alertId) {
+            const ids = getDismissedFireAlertIds().filter(id => String(id) !== String(alertId));
+            saveDismissedFireAlertIds(ids);
+        }
+
+        function addPersistedFireAlert(sensor) {
+            const alerts = getPersistedFireAlerts();
+            const nextAlert = {
+                id: sensor.id || sensor.device_id,
+                floor: sensor.floor || sensor.floor_name || '미지정',
+                title: sensor.title || sensor.description || sensor.location || sensor.id || sensor.device_id,
+                status: sensor.status || '화재',
+                time: sensor.time || sensor.received_at || sensor.created_at || new Date().toISOString(),
+                temp: sensor.temp ?? sensor.temp_val ?? '-'
+            };
+            removeDismissedFireAlertId(nextAlert.id);
+            savePersistedFireAlerts([...alerts, nextAlert]);
+        }
+
+        function closeFireAlert(event) {
+            if (event) event.stopPropagation();
+
+            const allIds = [
+                ...getDismissedFireAlertIds(),
+                ...getPersistedFireAlerts().map(alert => alert.id),
+                ...db.sensors
+                    .filter(s => s.status === '화재' || s.status === '화재 의심')
+                    .map(s => s.id)
+            ];
+            saveDismissedFireAlertIds(allIds);
+            localStorage.removeItem('activeFireAlerts');
+            latestAlertSensor = null;
+            const stackBox = document.getElementById('fireAlertStack');
+            if (stackBox) stackBox.innerHTML = '';
+            stopSiren();
+        }
+
+        function closeOneFireAlert(event, alertId) {
+            if (event) event.stopPropagation();
+
+            saveDismissedFireAlertIds([...getDismissedFireAlertIds(), alertId]);
+
+            const alerts = getPersistedFireAlerts()
+                .filter(alert => String(alert.id) !== String(alertId));
+
+            savePersistedFireAlerts(alerts);
+            checkFireAlert();
+            if (alerts.length === 0) stopSiren();
+        }
+
+        function getStatusClass(status) {
+            if (status === '생존') return 'alive';
+            if (status === '화재 의심') return 'warn';
+            if (status === '미수신') return 'new';
+            if (status === '정상') return 'safe';
+            if (status === '화재') return 'fire';
+            if (status.includes('점검')) return 'warn';
+            return 'new';
+        }
+
+        // ==========================================
+        // 3. UI 그리기 함수들
+        // ==========================================
+        function renderSidebar() {
+            const container = document.getElementById('floorSubMenu');
+            let html = '';
+
+            db.floors.forEach(floor => {
+                const isActive = (floor === db.currentFloor) ? 'active' : '';
+                html += `
+                    <div class="menu-item ${isActive}" draggable="true" data-floor="${floor}" onclick="changeFloor('${floor}')" ondragstart="dragFloorStart(event)" ondragover="dragFloorOver(event)" ondrop="dropFloor(event, '${floor}')">
+                        <span class="floor-name">☰ ${floor}</span>
+                        <span class="edit-icon auth-user" title="층 이름 수정" onclick="editFloorName(event, '${floor}')">✏️</span>
+                        <span class="edit-icon auth-user" title="층 삭제" onclick="deleteFloor(event, '${floor}')">🗑️</span>
+                    </div>
+                `;
+            });
+            html += `<div class="menu-item auth-user" style="color: #e51400; font-weight: bold;" onclick="addNewFloor()">층 추가하기</div>`;
+            container.innerHTML = html;
+        }
+
+        function renderFilters() {
+            const statusSelect = document.getElementById('filterFloorStatus');
+            let optionsHtml = `<option value="all">전체 층 ▼</option>`;
+            db.floors.forEach(f => optionsHtml += `<option value="${f}">${f}</option>`);
+            const prevStatusVal = statusSelect.value;
+            statusSelect.innerHTML = optionsHtml;
+            if (db.floors.includes(prevStatusVal) || prevStatusVal === 'all') statusSelect.value = prevStatusVal;
+        }
+
+        function renderMapAreas() {
+            const mapArea = document.getElementById('mapArea');
+            document.querySelectorAll('.floor-map').forEach(el => el.remove());
+
+            db.floors.forEach(floor => {
+                const mapDiv = document.createElement('div');
+                mapDiv.className = `floor-map ${floor === db.currentFloor ? 'active' : ''}`;
+                mapDiv.id = `map-${floor}`;
+
+                if (db.backgrounds[floor]) mapDiv.style.backgroundImage = `url(${db.backgrounds[floor]})`;
+
+                const floorSensors = db.sensors.filter(s => s.floor === floor);
+                floorSensors.forEach(sensor => {
+                    const colorClass = getStatusClass(sensor.status);
+                    const sensorDiv = document.createElement('div');
+                    sensorDiv.className = `sensor ${colorClass}`;
+                    sensorDiv.style.top = `${sensor.top}%`;
+                    sensorDiv.style.left = `${sensor.left}%`;
+                    sensorDiv.dataset.id = sensor.id;
+
+                    sensorDiv.innerHTML = `<div class="sensor-label">${sensor.title}</div>`;
+                    mapDiv.appendChild(sensorDiv);
+                });
+
+                mapArea.appendChild(mapDiv);
+            });
+        }
+
+        function renderStatusCards() {
+            const grid = document.getElementById('statusCardGrid');
+            const floorFilter = document.getElementById('filterFloorStatus').value;
+            const statusFilter = document.getElementById('filterStatus').value;
+            const searchWord = document.getElementById('searchStatus').value.toLowerCase();
+
+            let filtered = db.sensors.filter(s => {
+                const matchFloor = (floorFilter === 'all') || (s.floor === floorFilter);
+                const matchStatus = (statusFilter === 'all') || (s.status.includes(statusFilter));
+                const matchSearch = s.id.toLowerCase().includes(searchWord) || s.title.toLowerCase().includes(searchWord);
+                return matchFloor && matchStatus && matchSearch;
+            });
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `<div class="empty-message">조건에 맞는 감지기가 없습니다.</div>`;
+                return;
+            }
+
+            const svgIcon = `<svg viewBox="0 0 24 24"><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 14a7 7 0 1 1 14 0H5zM4 14v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></svg>`;
+            let html = '';
+            filtered.forEach(s => {
+                const dotClass = getStatusClass(s.status);
+                const badgeClass = dotClass === 'fire' ? 'badge-fire' : dotClass === 'warn' ? 'badge-warn' : dotClass === 'alive' ? 'badge-alive' : '';
+                html += `
+                <div class="sensor-card status-${dotClass}">
+                    <div class="card-icon">${svgIcon}</div>
+                    <div class="card-info" style="position:relative;">
+                        <div class="card-id-row">ID : ${s.id} <div class="dot ${dotClass}"></div></div>
+                        <div>${s.title}</div>
+                        <div>상태 : ${s.status} ${badgeClass ? `<span class="mini-badge ${badgeClass}">${s.status}</span>` : ''}</div>
+                        <div>온도 : ${s.temp ?? '-'}${s.temp !== '-' ? '℃' : ''}</div>
+                        <div>배터리 : ${s.battery ?? '-'}${s.battery !== '-' ? '%' : ''}</div>
+                        <div>불꽃 감지 : ${s.flame ?? '미감지'}</div>
+                        <div>수신시간 : ${formatDateTimeNoSeconds(s.time)}</div>
+                    </div>
+                </div>`;
+            });
+            grid.innerHTML = html;
+        }
+
+        function renderRecordCards() {
+            const grid = document.getElementById('recordCardGrid');
+            const dateFilter = document.getElementById('filterDateRecords').value;
+            const typeFilter = document.getElementById('filterTypeRecords').value;
+            const searchWord = document.getElementById('searchRecords').value.toLowerCase();
+
+            if (!dateFilter && typeFilter === 'all' && !searchWord) {
+                grid.innerHTML = `<div class="empty-message">검색 조건을 입력해주세요.</div>`;
+                return;
+            }
+
+            let filtered = db.records.filter(r => {
+                const recordDate = formatDateOnlyKorean(r.time);
+                const matchDate = !dateFilter || recordDate === dateFilter;
+                const matchType = (typeFilter === 'all') || (r.type === typeFilter);
+                const matchSearch = r.title.toLowerCase().includes(searchWord);
+                return matchDate && matchType && matchSearch;
+            });
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `<div class="empty-message">화재 기록이 없습니다.</div>`;
+                return;
+            }
+
+            const svgIcon = `<svg viewBox="0 0 24 24"><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 14a7 7 0 1 1 14 0H5zM4 14v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></svg>`;
+            let html = '';
+            filtered.forEach(r => {
+                const isFire = r.type === '화재';
+                const cardClass = isFire ? 'status-fire' : 'status-warn';
+                const title = isFire ? '🔥 실제 화재' : '⚠️ 화재 의심';
+                html += `
+                <div class="sensor-card ${cardClass}">
+                    <div class="card-icon">${svgIcon}</div>
+                    <div class="card-info">
+                        <div class="card-id-row" style="color:${isFire ? 'var(--status-fire)' : '#b38900'}">${title}</div>
+                        <div>${r.title}</div>
+                        <div>감지 시간 : ${formatDateTimeNoSeconds(r.time)}</div>
+                        <div>온도 : ${r.temp ?? '-'}${r.temp !== '-' ? '℃' : ''}</div>
+                        <div>불꽃 감지 : ${r.flame ?? '미감지'}</div>
+                    </div>
+                </div>`;
+            });
+            grid.innerHTML = html;
+        }
+
+        // ==========================================
+        // 4. 기능 로직 (로그아웃, 수정, 추가 등)
+        // ==========================================
+        function handleLogout() {
+            localStorage.removeItem('isLoggedIn');
+            window.location.reload();
+        }
+
+        let draggedFloorName = null;
+        function toggleFloorMenu() {
+            document.getElementById('floorSubMenu').classList.toggle('collapsed');
+            document.getElementById('floorArrow').classList.toggle('rotated');
+        }
+        function dragFloorStart(event) {
+            draggedFloorName = event.currentTarget.dataset.floor;
+            event.dataTransfer.effectAllowed = 'move';
+        }
+        function dragFloorOver(event) {
+            event.preventDefault();
+        }
+        async function dropFloor(event, targetFloor) {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!draggedFloorName || draggedFloorName === targetFloor) return;
+
+            const fromIndex = db.floors.indexOf(draggedFloorName);
+            const toIndex = db.floors.indexOf(targetFloor);
+            const [moved] = db.floors.splice(fromIndex, 1);
+            db.floors.splice(toIndex, 0, moved);
+            draggedFloorName = null;
+            renderAll();
+
+            try {
+                const items = db.floors.map((floorName, index) => ({
+                    id: db.floorMap[floorName],
+                    order_index: index + 1
+                }));
+
+                const res = await fetch(`${API_BASE}/api/floors/reorder`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items })
+                });
+
+                const result = await res.json();
+                if (!res.ok || result.success === false) throw new Error(result.message || '층 순서 저장 실패');
+            } catch (err) {
+                console.error('층 순서 저장 실패:', err);
+                await showCustomModal('alert', '오류', err.message);
+                await loadFloorsFromDB();
+                renderAll();
+            }
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.view-section').forEach(view => view.classList.remove('active'));
+            if (event && event.target) event.target.classList.add('active');
+            document.getElementById('view-' + tabName).classList.add('active');
+            closePopup();
+        }
+
+        function changeFloor(floorName) {
+            db.currentFloor = floorName;
+            renderAll();
+            closePopup();
+        }
+
+        async function editFloorName(event, oldFloorName) {
+            event.stopPropagation();
+            const newName = await showCustomModal('prompt', '이름 변경', `'${oldFloorName}'의 변경할 이름을 입력해주세요:`, oldFloorName);
+
+            if (!newName || newName.trim() === '' || newName === oldFloorName) return;
+
+            try {
+                const floorId = db.floorMap[oldFloorName];
+                const res = await fetch(`${API_BASE}/api/floors/${floorId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName.trim() })
+                });
+
+                const result = await res.json();
+                if (!res.ok || result.success === false) throw new Error(result.message || '층 수정 실패');
+
+                if (db.currentFloor === oldFloorName) db.currentFloor = newName.trim();
+                await loadInitialData();
+            } catch (err) {
+                console.error('층 수정 실패:', err);
+                await showCustomModal('alert', '오류', err.message);
+            }
+        }
+
+
+        async function deleteFloor(event, floorName) {
+            event.stopPropagation();
+
+            const floorId = db.floorMap[floorName];
+            if (!floorId) {
+                await showCustomModal('alert', '오류', '층 정보를 찾을 수 없습니다.');
+                return;
+            }
+
+            const hasSensors = db.sensors.some(s => s.floor === floorName);
+            const message = hasSensors
+                ? `'${floorName}'에 감지기가 있습니다. 층을 삭제하면 해당 감지기의 층 정보가 비어있게 됩니다. 그래도 삭제하시겠습니까?`
+                : `'${floorName}' 층을 삭제하시겠습니까?`;
+
+            const isConfirmed = await showCustomModal('confirm', '층 삭제', message);
+            if (!isConfirmed) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/api/floors/${floorId}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await res.json();
+                if (!res.ok || result.success === false) throw new Error(result.message || '층 삭제 실패');
+
+                if (db.currentFloor === floorName) {
+                    db.currentFloor = '';
+                }
+
+                await loadInitialData();
+            } catch (err) {
+                console.error('층 삭제 실패:', err);
+                await showCustomModal('alert', '오류', err.message);
+            }
+        }
+
+        async function addNewFloor() {
+            const newFloorName = await showCustomModal('prompt', '층 추가', '추가할 층 이름을 입력해주세요:');
+
+            if (!newFloorName || newFloorName.trim() === '') return;
+
+            try {
+                const cleanName = newFloorName.trim();
+
+                if (db.floors.includes(cleanName)) {
+                    await showCustomModal('alert', '오류', '이미 존재하는 층 이름입니다.');
+                    return;
+                }
+
+                const res = await fetch(`${API_BASE}/api/floors`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: cleanName })
+                });
+
+                const result = await res.json();
+                if (!res.ok || result.success === false) throw new Error(result.message || '층 추가 실패');
+
+                db.currentFloor = cleanName;
+                await loadInitialData();
+            } catch (err) {
+                console.error('층 추가 실패:', err);
+                await showCustomModal('alert', '오류', err.message);
+            }
+        }
+
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const floorId = db.floorMap[db.currentFloor];
+            if (!floorId) {
+                await showCustomModal('alert', '오류', '현재 층 정보를 찾을 수 없습니다.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async function (e) {
+                try {
+                    const res = await fetch(`${API_BASE}/api/floors/${floorId}/image`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            fileName: file.name,
+                            imageData: e.target.result
+                        })
+                    });
+
+                    const result = await res.json();
+                    if (!res.ok || result.success === false) throw new Error(result.message || '도면 저장 실패');
+
+                    const savedFloor = result.data;
+                    db.backgrounds[db.currentFloor] = savedFloor.image;
+                    renderAll();
+                    await showCustomModal('alert', '저장 완료', '도면 이미지가 저장되었습니다.');
+                } catch (err) {
+                    console.error('도면 저장 실패:', err);
+                    await showCustomModal('alert', '오류', err.message);
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // ==========================================
+        // 5. 센서 드래그 & 드롭 (편집 모드)
+        // ==========================================
+        let isSirenAudioUnlocked = false;
+
+        function unlockSirenAudio() {
+            if (isSirenAudioUnlocked) return;
+
+            const siren = document.getElementById('sirenAudio');
+            if (!siren) return;
+
+            const originalVolume = siren.volume;
+            siren.volume = 0;
+
+            const playPromise = siren.play();
+            if (playPromise && typeof playPromise.then === 'function') {
+                playPromise.then(() => {
+                    siren.pause();
+                    siren.currentTime = 0;
+                    siren.volume = originalVolume;
+                    isSirenAudioUnlocked = true;
+                }).catch(() => {
+                    siren.volume = originalVolume;
+                });
+            } else {
+                siren.pause();
+                siren.currentTime = 0;
+                siren.volume = originalVolume;
+                isSirenAudioUnlocked = true;
+            }
+        }
+
+        function toggleEditMode() {
+            unlockSirenAudio();
+
+            isEditMode = !isEditMode;
+            const btn = document.getElementById('btnEditMode');
+            if (isEditMode) {
+                btn.style.backgroundColor = '#F1C40F';
+                btn.style.color = '#000';
+                btn.innerText = '감지기 편집 중...';
+            } else {
+                btn.style.backgroundColor = 'var(--btn-red)';
+                btn.style.color = 'var(--white)';
+                btn.innerText = '감지기 편집';
+            }
+            closePopup();
+        }
+
+        const mapArea = document.getElementById('mapArea');
+
+        mapArea.addEventListener('mousedown', function (e) {
+            if (isEditMode) {
+                const sensor = e.target.closest('.sensor');
+                if (sensor) {
+                    draggedSensorId = sensor.dataset.id;
+                    e.preventDefault();
+                }
+            }
+        });
+
+        mapArea.addEventListener('mousemove', function (e) {
+            if (isEditMode && draggedSensorId) {
+                const sensorEl = document.querySelector(`.sensor[data-id="${draggedSensorId}"]`);
+                if (sensorEl) {
+                    const rect = mapArea.getBoundingClientRect();
+                    let x = ((e.clientX - rect.left) / rect.width) * 100;
+                    let y = ((e.clientY - rect.top) / rect.height) * 100;
+                    x = Math.max(0, Math.min(x, 100));
+                    y = Math.max(0, Math.min(y, 100));
+                    sensorEl.style.left = x + '%';
+                    sensorEl.style.top = y + '%';
+                }
+            }
+        });
+
+        window.addEventListener('mouseup', async function (e) {
+            if (isEditMode && draggedSensorId) {
+                const sensorEl = document.querySelector(`.sensor[data-id="${draggedSensorId}"]`);
+                const sensorData = db.sensors.find(s => s.id === draggedSensorId);
+                if (sensorData && sensorEl) {
+                    sensorData.left = parseFloat(sensorEl.style.left);
+                    sensorData.top = parseFloat(sensorEl.style.top);
+
+                    try {
+                        const res = await fetch(`${API_BASE}/api/sensors/${draggedSensorId}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ x: sensorData.left, y: sensorData.top })
+                        });
+                        const result = await res.json();
+                        if (!res.ok || result.success === false) throw new Error(result.message || '감지기 위치 저장 실패');
+                    } catch (err) {
+                        console.error('감지기 위치 저장 실패:', err);
+                        await showCustomModal('alert', '오류', err.message);
+                    }
+                }
+                draggedSensorId = null;
+            }
+        });
+
+        // ==========================================
+        // 6. 센서 팝업창 및 모달 제어
+        // ==========================================
+        mapArea.addEventListener('click', function (e) {
+            const sensor = e.target.closest('.sensor');
+            if (sensor && !isEditMode) {
+                currentPopupSensorId = sensor.dataset.id;
+                const sData = db.sensors.find(s => s.id === currentPopupSensorId);
+                if (!sData) return;
+
+                document.getElementById('popTitle').innerText = sData.title;
+                document.getElementById('popId').innerText = sData.id;
+                document.getElementById('popFloor').innerText = sData.floor;
+                document.getElementById('popStatus').innerText = sData.status;
+                document.getElementById('popTemp').innerText = (sData.temp ?? '-') + (sData.temp !== '-' ? '℃' : '');
+                document.getElementById('popBattery').innerText = (sData.battery ?? '-') + (sData.battery !== '-' ? '%' : '');
+                document.getElementById('popFlame').innerText = sData.flame ?? '미감지';
+
+                const popup = document.getElementById('sensorPopup');
+                popup.style.top = (sensor.offsetTop - 140) + 'px';
+                popup.style.left = (sensor.offsetLeft + 20) + 'px';
+                popup.classList.add('show');
+            } else if (!sensor && !e.target.closest('.sensor-popup')) {
+                closePopup();
+            }
+        });
+
+        function closePopup() {
+            document.getElementById('sensorPopup').classList.remove('show');
+            currentPopupSensorId = null;
+        }
+
+        async function editSensorData(type) {
+            if (!currentPopupSensorId) return;
+            const sensorData = db.sensors.find(s => s.id === currentPopupSensorId);
+            if (!sensorData) return;
+
+            let newVal;
+            const updateBody = {};
+
+            if (type === 'title') {
+                newVal = await showCustomModal('prompt', '이름 수정', '새로운 위치 이름을 입력하세요:', sensorData.title);
+                if (!newVal) return;
+                updateBody.description = newVal.trim();
+            }
+
+            if (type === 'id') {
+                await showCustomModal('alert', '알림', '감지기 ID는 DB 기본키라서 이 화면에서는 변경하지 않는 것을 추천합니다.');
+                return;
+            }
+
+            if (type === 'floor') {
+                newVal = await showCustomModal('prompt', '층 변경', '이동시킬 층을 입력하세요 (예: 2층):', sensorData.floor);
+                if (!newVal) return;
+
+                const cleanFloor = newVal.trim();
+                if (!db.floors.includes(cleanFloor)) {
+                    await showCustomModal('alert', '오류', '존재하지 않는 층입니다.');
+                    return;
+                }
+                updateBody.floor_id = db.floorMap[cleanFloor];
+            }
+
+            if (type === 'status') {
+                newVal = await showCustomModal('prompt', '상태 변경', '강제 변경할 상태를 입력하세요 (생존/화재 의심/화재/미수신):', sensorData.status);
+                if (!newVal) return;
+                updateBody.status = koreanStatusToDb(newVal.trim());
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/api/sensors/${currentPopupSensorId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updateBody)
+                });
+
+                const result = await res.json();
+                if (!res.ok || result.success === false) throw new Error(result.message || '감지기 수정 실패');
+
+                await loadSensorsFromDB();
+                renderAll();
+                closePopup();
+            } catch (err) {
+                console.error('감지기 수정 실패:', err);
+                await showCustomModal('alert', '오류', err.message);
+            }
+        }
+
+        async function deleteSensor() {
+            if (!currentPopupSensorId) return;
+            const isConfirmed = await showCustomModal('confirm', '감지기 삭제', '이 감지기를 정말 삭제하시겠습니까?');
+
+            if (!isConfirmed) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/api/sensors/${currentPopupSensorId}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await res.json();
+                if (!res.ok || result.success === false) throw new Error(result.message || '감지기 삭제 실패');
+
+                await loadSensorsFromDB();
+                renderAll();
+                closePopup();
+            } catch (err) {
+                console.error('감지기 삭제 실패:', err);
+                await showCustomModal('alert', '오류', err.message);
+            }
+        }
+
+        function openAddModal() {
+            document.getElementById('newSensorFloor').value = db.currentFloor;
+            document.getElementById('newSensorId').value = '';
+            document.getElementById('newSensorTitle').value = '';
+            document.getElementById('addSensorModal').classList.add('show');
+        }
+
+        function closeAddModal() {
+            document.getElementById('addSensorModal').classList.remove('show');
+        }
+
+        async function submitAddSensor() {
+            const id = document.getElementById('newSensorId').value.trim();
+            const title = document.getElementById('newSensorTitle').value.trim();
+
+            if (!id || !title) {
+                await showCustomModal('alert', '입력 확인', 'ID와 위치 이름을 모두 입력해주세요.');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/api/sensors`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        device_id: id,
+                        status: 'disconnect',
+                        description: title,
+                        x: 50,
+                        y: 50,
+                        floor_id: db.floorMap[db.currentFloor] || null
+                    })
+                });
+
+                const result = await res.json();
+                if (!res.ok || result.success === false) throw new Error(result.message || '감지기 추가 실패');
+
+                await loadSensorsFromDB();
+                renderAll();
+                closeAddModal();
+            } catch (err) {
+                console.error('감지기 추가 실패:', err);
+                await showCustomModal('alert', '오류', err.message);
+            }
+        }
+
+        let latestAlertSensor = null;
+
+
+        function restartSiren() {
+            const siren = document.getElementById('sirenAudio');
+            if (!siren) return;
+
+            siren.pause();
+            siren.currentTime = 0;
+            siren.play().catch(() => { });
+        }
+
+        function stopSiren() {
+            const siren = document.getElementById('sirenAudio');
+            if (!siren) return;
+
+            siren.pause();
+            siren.currentTime = 0;
+        }
+
+        function checkFireAlert() {
+            const stackBox = document.getElementById('fireAlertStack');
+            const sensorsInAlert = db.sensors
+                .filter(s => s.status === '화재' || s.status === '화재 의심')
+                .map(s => ({
+                    id: s.id,
+                    floor: s.floor || '미지정',
+                    title: s.title || s.id,
+                    status: s.status,
+                    time: s.time || new Date().toISOString(),
+                    temp: s.temp ?? '-'
+                }));
+
+            const activeSensorIds = sensorsInAlert.map(sensor => String(sensor.id));
+            const dismissedIds = getDismissedFireAlertIds().map(id => String(id));
+            const persistedAlerts = getPersistedFireAlerts()
+                .filter(alert =>
+                    activeSensorIds.includes(String(alert.id)) &&
+                    !dismissedIds.includes(String(alert.id))
+                );
+            const alerts = [...persistedAlerts, ...sensorsInAlert]
+                .filter(alert => !dismissedIds.includes(String(alert.id)));
+
+            savePersistedFireAlerts(alerts);
+            const uniqueAlerts = getPersistedFireAlerts()
+                .filter(alert => !dismissedIds.includes(String(alert.id)));
+
+            if (uniqueAlerts.length > 0) {
+                latestAlertSensor = uniqueAlerts[0];
+
+                stackBox.innerHTML = uniqueAlerts.map(alert => {
+                    const headerText = alert.status === '화재 의심' ? '화재 의심' : '화재 감지';
+                    const floorArg = JSON.stringify(alert.floor || '');
+                    const idArg = JSON.stringify(String(alert.id));
+
+                    return `
+                        <div class="fire-alert-item" onclick='moveToSpecificAlertFloor(${floorArg})'>
+                            <div class="fire-alert-header">
+                                <span>${headerText}</span>
+                                <span style="cursor:pointer; color:#888; font-weight:normal;" onclick='closeOneFireAlert(event, ${idArg})'>X</span>
+                            </div>
+                            <div>${alert.floor || '미지정'} - ${alert.title || alert.id}</div>
+                            <div style="margin-top: 5px; font-size: 13px; color:#555;">시간: ${formatDateTimeNoSeconds(alert.time)}</div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                latestAlertSensor = null;
+                stackBox.innerHTML = '';
+            }
+        }
+
+        function moveToAlertFloor() {
+            if (latestAlertSensor && latestAlertSensor.floor && db.floors.includes(latestAlertSensor.floor)) {
+                changeFloor(latestAlertSensor.floor);
+                switchTabByName('main');
+            }
+        }
+
+        function moveToSpecificAlertFloor(floorName) {
+            if (floorName && db.floors.includes(floorName)) {
+                changeFloor(floorName);
+                switchTabByName('main');
+            }
+        }
+
+        function switchTabByName(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.view-section').forEach(view => view.classList.remove('active'));
+            const tabIndex = tabName === 'main' ? 0 : tabName === 'status' ? 1 : 2;
+            const tabs = document.querySelectorAll('.tab');
+            if (tabs[tabIndex]) tabs[tabIndex].classList.add('active');
+            document.getElementById('view-' + tabName).classList.add('active');
+            closePopup();
+        }
+    </script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script>
+        const socket = io(API_BASE);
+
+        socket.on('connect', () => {
+            console.log('socket 연결 성공');
+        });
+
+        socket.on('heartbeat-update', (data) => {
+            console.log('프론트 heartbeat-update 수신:', data);
+
+            const sensorId = data.device_id || data.sid || 'unknown';
+            const existing = db.sensors.find(s => s.id === sensorId);
+
+            if (existing) {
+                existing.status = '생존';
+                existing.temp = data.temp_val ?? data.temperature ?? data.t ?? '-';
+                existing.flame = isFlameDetected(data.flame_val ?? data.flame ?? data.f) ? '감지' : '미감지';
+                existing.time = data.time || data.on_time || data.ot || new Date().toISOString();
+                existing.title = data.description || existing.title;
+                existing.battery = data.battery_level ?? data.bat_pct ?? data.bp ?? existing.battery ?? '-';
+                existing.floor = data.floor_name || existing.floor || db.currentFloor || '미지정';
+            } else {
+                db.sensors.unshift({
+                    id: sensorId,
+                    floor: data.floor_name || db.currentFloor || '미지정',
+                    floor_id: null,
+                    title: data.description || sensorId,
+                    status: '생존',
+                    top: 50,
+                    left: 50,
+                    time: data.time || data.on_time || data.ot || new Date().toISOString(),
+                    temp: data.temp_val ?? data.temperature ?? data.t ?? '-',
+                    battery: data.battery_level ?? data.bat_pct ?? data.bp ?? '-',
+                    flame: isFlameDetected(data.flame_val ?? data.flame ?? data.f) ? '감지' : '미감지'
+                });
+            }
+
+            renderAll();
+        });
+
+        socket.on('suspicious-update', (data) => {
+            console.log('프론트 suspicious-update 수신:', data);
+
+            const sensorId = data.device_id || data.sid || 'unknown';
+
+            const existing = db.sensors.find(s => s.id === sensorId);
+            if (existing) {
+                existing.status = '화재 의심';
+                existing.temp = data.temp_val ?? data.temperature ?? data.t ?? '-';
+                existing.flame = '감지';
+                existing.time = data.time || data.on_time || data.ot || new Date().toISOString();
+                existing.title = data.description || existing.title;
+                existing.battery = data.battery_level ?? data.bat_pct ?? data.bp ?? existing.battery ?? '-';
+                existing.floor = data.floor_name || existing.floor || db.currentFloor || '미지정';
+                addPersistedFireAlert(existing);
+            } else {
+                addPersistedFireAlert({
+                    id: sensorId,
+                    floor: data.floor_name || db.currentFloor || '미지정',
+                    title: data.description || sensorId,
+                    status: '화재 의심',
+                    time: data.time || data.on_time || data.ot || new Date().toISOString(),
+                    temp: data.temp_val ?? data.temperature ?? data.t ?? '-',
+                    battery: data.battery_level ?? data.bat_pct ?? data.bp ?? '-'
+                });
+            }
+
+            renderAll();
+        });
+
+        socket.on('fire-update', (data) => {
+            console.log('프론트 fire-update 수신:', data);
+
+            const sensorId = data.device_id || data.sid || 'unknown';
+
+            const existing = db.sensors.find(s => s.id === sensorId);
+            if (existing) {
+                existing.status = '화재';
+                existing.temp = data.temp_val ?? data.temperature ?? data.t ?? '-';
+                existing.flame = '감지';
+                existing.time = data.time || data.on_time || data.ot || new Date().toISOString();
+                existing.title = data.description || existing.title;
+                existing.battery = data.battery_level ?? data.bat_pct ?? data.bp ?? existing.battery ?? '-';
+                existing.floor = data.floor_name || existing.floor || db.currentFloor || '미지정';
+                addPersistedFireAlert(existing);
+            } else {
+                const newSensor = {
+                    id: sensorId,
+                    floor: data.floor_name || db.currentFloor || '미지정',
+                    floor_id: null,
+                    title: data.description || sensorId,
+                    status: '화재',
+                    top: 50,
+                    left: 50,
+                    time: data.time || data.on_time || data.ot || new Date().toISOString(),
+                    temp: data.temp_val ?? data.temperature ?? data.t ?? '-',
+                    battery: data.battery_level ?? data.bat_pct ?? data.bp ?? '-',
+                    flame: '감지'
+                };
+                db.sensors.unshift(newSensor);
+                addPersistedFireAlert(newSensor);
+            }
+
+            renderAll();
+            restartSiren();
+        });
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,78 @@
+감지기 > 게이트웨이 (LoRa)
+{
+  "k": "hb",			// payload 종류 (hb, evt, join)
+  "sid": "flame-001",	// 감지기 고유 ID
+  "seq": 12,			// 메시지 순번, 패킷 누락 확인용
+  "f": false,			// 불꽃 감지 여부 (true = 감지, false = 미감지)
+  "t": 24.63,			// 온도 측정값 (섭씨)
+  "bat_pct": 58,		// 배터리 잔량
+  "s": "active"		// 감지기 상태 (disconnect, suspect, alert, active)
+}
+ - disconnect는 사실 게이트웨이에서 판단하는게 더 좋다.
+ - 다만 시연임을 감안해서 그냥 넣어둿다.
+
+
+
+게이트웨이에서 토픽 선택 조건 (!!중요!! 백엔드에서는 MQTT로 받기만해서 필요 X !!중요!!)
+k는 payload 종류를, s는 감지기 상태를 의미
+  - heartbeat 토픽
+      - 1번 
+        - k = hb
+        - s = active
+      - 2번
+        - k = hb
+        - s = disconnect
+  - alert 토픽
+      - 1번
+        - k = evt
+        - s = suspect
+      - 2번
+        - k = evt
+        - s = alert
+  - join 토픽
+      - k = join
+      - s = active
+
+
+
+게이트웨이 > 백엔드 (MQTT)
+ - 토픽 종류
+    - 등록 신호 : gateway/{gid}/sensor/{sid}/join (등록/최초 연결)
+    - 생존 신호 : gateway/{gid}/sensor/{sid}/heartbeat (생존/상태 갱신)
+    - 화재 신호 : gateway/{gid}/sensor/{sid}/alert (화재/의심 이벤트)
+
+
+ - 토픽 데이터
+    - 등록 데이터 (devices/heartbeat_logs 테이블에 INSERT를 사용하여 행 추가 / 있으면 백엔드에서 무시)
+{
+  "gid": "gateway-01",		// 게이트웨이 ID
+  "sid": "sensor-01",		// 감지기 ID
+  "f": false,				// 등록 송신 당시 화염/불꽃 감지 여부
+  "t": 24.6,				// 등록 송신 당시 온도
+  "bp": 56,				// 등록 송신 당시 감지기 배터리 잔량 (% 단위)
+  "rssi": -87				// 등록 송신 당시 수신 감도 (dBm 단위)
+  "s": "active",			// 등록 송신 당시 감지기 상태 (active | disconnect)
+  "ot": "2026-05-22 14:32:10"	// 등록 송신 당시 전송 시간
+}
+    - 생존 데이터 (devices/heartbeat_logs 테이블에서 UPDATE를 사용해 값 갱신)
+{
+  "gid": "gateway-01",		// 게이트웨이 ID
+  "sid": "sensor-01",		// 감지기 ID
+  "f": false,				// 생존신호 송신 당시 화염/불꽃 감지 여부
+  "t": 27.7,				// 생존신호 송신 당시 온도
+  "bp": 56,				// 생존신호 송신 당시 감지기 배터리 잔량 (% 단위)
+  "rssi": -87				// 생존신호 송신 당시 수신 감도 (dBm 단위)
+  "s": "active",			// 생존신호 송신 당시 감지기 상태 (active | disconnect)
+  "ot": "2026-05-22 14:32:10"	// 생존신호 송신 당시 전송 시간
+}
+    - 화재 데이터 (sensor_logs 테이블에 INSERT를 사용해 행 추가)
+{
+  "gid": "gateway-01",		// 게이트웨이 ID
+  "sid": "sensor-01",		// 감지기 ID
+  "f": true,				// 화재/의심 당시 화염/불꽃 감지 여부
+  "t": 50.1,				// 화재/의심 당시 온도
+  "bp": 56,				// 화재/의심 당시 감지기 배터리 잔량 (% 단위)
+  "rssi": -87				// 화재/의심 당시 수신 감도 (dBm 단위)
+  "s": "alert",			// 화재/의심 당시 감지기 상태 (의심의 suspect | 감지의 alert)
+  "ot": "2026-05-22 14:32:10"	// 화재/의심 당시 전송 시간
+}

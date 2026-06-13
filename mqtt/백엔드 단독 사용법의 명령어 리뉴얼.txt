@@ -1,0 +1,33 @@
+실행하기
+ - .\mosquitto.exe -c mosquitto.conf -v
+
+Linux
+ - join = python3 -m mqtt.command join --sensor-id flame-001 --flame false --temperature 24.6 --bp 58 --rssi -87 --status active
+ - heartbeat = python3 -m mqtt.command heartbeat --sensor-id flame-001 --flame false --temperature 27.7 --bp 56 --rssi -87 --status active
+ - alert = python3 -m mqtt.command alert --sensor-id flame-001 --flame true --temperature 50.1 --bp 56 --rssi -87 --status alert
+ - suspect = python3 -m mqtt.command alert --sensor-id flame-001 --flame true --temperature 42.3 --bp 56 --rssi -87 --status suspect
+
+
+Window CMD
+ - join = .\mosquitto_pub.exe -h 127.0.0.1 -p 1883 -t gateway/gateway-01/sensor/flame-001/join -m "{""gid"":""gateway-01"",""sid"":""flame-001"",""f"":false,""t"":24.6,""bp"":58,""rssi"":-87,""s"":""active"",""ot"":""2026-05-23 14:32:10""}"
+ - heartbeat = .\mosquitto_pub.exe -h 127.0.0.1 -p 1883 -t gateway/gateway-01/sensor/flame-001/heartbeat -m "{""gid"":""gateway-01"",""sid"":""flame-001"",""f"":false,""t"":30.7,""bp"":56,""rssi"":-87,""s"":""active"",""ot"":""2026-05-23 20:33:10""}"
+ - alert = .\mosquitto_pub.exe -h 127.0.0.1 -p 1883 -t gateway/gateway-01/sensor/flame-001/alert -m "{""gid"":""gateway-01"",""sid"":""flame-001"",""f"":true,""t"":50.1,""bp"":56,""rssi"":-87,""s"":""alert"",""ot"":""2026-05-23 14:34:10""}"
+ - suspect = .\mosquitto_pub.exe -h 127.0.0.1 -p 1883 -t gateway/gateway-01/sensor/flame-001/alert -m "{""gid"":""gateway-01"",""sid"":""flame-001"",""f"":true,""t"":42.3,""bp"":56,""rssi"":-87,""s"":""suspect"",""ot"":""2026-05-23 14:35:10""}"
+
+
+Window Power Shell
+ - join = .\mosquitto_pub.exe -h 127.0.0.1 -p 1883 -t gateway/gateway-01/sensor/flame-001/join -m '{"gid":"gateway-01","sid":"flame-001","f":false,"t":24.6,"bp":58,"rssi":-87,"s":"active","ot":"2026-05-23 14:32:10"}'
+ - heartbeat = .\mosquitto_pub.exe -h 127.0.0.1 -p 1883 -t gateway/gateway-01/sensor/flame-001/heartbeat -m '{"gid":"gateway-01","sid":"flame-001","f":false,"t":27.7,"bp":56,"rssi":-87,"s":"active","ot":"2026-05-23 14:33:10"}'
+ - alert = .\mosquitto_pub.exe -h 127.0.0.1 -p 1883 -t gateway/gateway-01/sensor/flame-001/alert -m '{"gid":"gateway-01","sid":"flame-001","f":true,"t":50.1,"bp":56,"rssi":-87,"s":"alert","ot":"2026-05-23 14:34:10"}'
+ - suspect = .\mosquitto_pub.exe -h 127.0.0.1 -p 1883 -t gateway/gateway-01/sensor/flame-001/alert -m '{"gid":"gateway-01","sid":"flame-001","f":true,"t":42.3,"bp":56,"rssi":-87,"s":"suspect","ot":"2026-05-23 14:35:10"}'
+
+
+
+사실상 Window 테스트 구도는 아래와 같다.
+mosquitto_pub.exe
+        ↓
+Mosquitto Broker
+        ↓
+Express 백엔드 MQTT subscribe
+        ↓
+DB / Socket 처리

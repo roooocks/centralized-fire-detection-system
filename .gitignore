@@ -1,0 +1,7 @@
+# 공통
+node_modules/
+.env
+package-lock.json
+
+# 프론트
+sounds/

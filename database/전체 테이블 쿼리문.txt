@@ -1,0 +1,58 @@
+CREATE TABLE team.users (
+	id serial4 NOT NULL,
+	"name" varchar(100) NOT NULL,
+	user_id varchar(50) NOT NULL,
+	"password" varchar(255) NOT NULL,
+	created_at timestamp DEFAULT now() NULL,
+	CONSTRAINT users_pkey PRIMARY KEY (id),
+	CONSTRAINT users_user_id_key UNIQUE (user_id)
+);
+
+
+CREATE TABLE team.floor_table (
+	id serial4 NOT NULL,
+	"name" varchar(50) NOT NULL,
+	order_index int4 NOT NULL,
+	image text NULL,
+	created_at timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL,
+	CONSTRAINT floor_table_pkey PRIMARY KEY (id)
+);
+
+
+CREATE TABLE team.devices (
+	device_id varchar(50) NOT NULL,
+	status varchar(20) DEFAULT 'disconnect'::character varying NULL,
+	last_ping timestamp NULL,
+	description varchar(255) NULL,
+	x float4 NULL,
+	y float4 NULL,
+	floor_id int4 NULL,
+	CONSTRAINT chk_status_values CHECK (((status)::text = ANY ((ARRAY['disconnect'::character varying, 'active'::character varying, 'alert'::character varying, 'suspect'::character varying])::text[]))),
+	CONSTRAINT devices_pkey PRIMARY KEY (device_id)
+);
+ALTER TABLE team.devices ADD CONSTRAINT fk_device_floor FOREIGN KEY (floor_id) REFERENCES team.floor_table(id) ON DELETE SET NULL;
+
+
+CREATE TABLE team.heartbeat_logs (
+	id serial4 NOT NULL,
+	device_id varchar(50) NOT NULL,
+	flame_val boolean NULL,
+	temp_val float4 NULL,
+	battery_level float4 NULL,
+	signal_strength float4 NULL,
+	received_at timestamp DEFAULT now() NULL,
+	CONSTRAINT heartbeat_logs_pkey PRIMARY KEY (id)
+);
+ALTER TABLE team.heartbeat_logs ADD CONSTRAINT fk_heartbeat_device FOREIGN KEY (device_id) REFERENCES team.devices(device_id) ON DELETE CASCADE;
+
+
+CREATE TABLE team.sensor_logs (
+	id serial4 NOT NULL,
+	device_id varchar(50) NOT NULL,
+	flame_val boolean NULL,
+	temp_val float4 NULL,
+	created_at timestamp DEFAULT CURRENT_TIMESTAMP NULL,
+	floor_name varchar(50) NULL,
+	description varchar(255) NULL,
+	CONSTRAINT sensor_logs_pkey PRIMARY KEY (id)
+);

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>게이트웨이 테스트 페이지</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f3f6f9;
+            padding: 40px;
+        }
+
+        .box {
+            max-width: 760px;
+            background: white;
+            padding: 25px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+        }
+
+        .move-btn {
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 25px;
+            border: none;
+            background: #444;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 6px;
+        }
+
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        .sensor-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 18px;
+            background: #fafafa;
+        }
+
+        .sensor-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 12px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 8px;
+            border: none;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 6px;
+        }
+
+        .heartbeat {
+            background: #2C3E50;
+        }
+
+        .suspicious {
+            background: #F1C40F;
+            color: #222;
+        }
+
+        .fire {
+            background: #DA291C;
+        }
+
+        .input-line {
+            margin-top: 10px;
+            font-size: 13px;
+        }
+
+        .input-line input, .input-line select {
+            width: 100%;
+            padding: 8px;
+            margin-top: 4px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        pre {
+            background: #111;
+            color: #0f0;
+            padding: 15px;
+            margin-top: 25px;
+            min-height: 180px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="box">
+        <button class="move-btn" onclick="location.href='index.html'">메인 페이지</button>
+
+        <h1>게이트웨이 테스트 페이지</h1>
+        <p>각 감지기별로 생존, 화재 의심, 실제 화재 신호를 서버로 보냅니다.</p>
+
+        <div class="sensor-grid" id="sensorGrid"></div>
+
+        <pre id="log"></pre>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script>
+        const socket = io();
+        const log = document.getElementById('log');
+        const sensorGrid = document.getElementById('sensorGrid');
+
+        const sensors = [
+            {
+                device_id: 'ABC123',
+                floor: '1층',
+                title: '1층 탕비실',
+                received_at: '2026-05-06 18:30:00',
+                temp_val: 24,
+                flame_val: 0,
+                suspicious_time: '2026-05-06 18:35:00',
+                fire_time: '2026-05-06 18:36:22'
+            },
+            {
+                device_id: 'DEF456',
+                floor: '1층',
+                title: '1층 로비',
+                received_at: '2026-05-06 18:15:00',
+                temp_val: 26,
+                flame_val: 0,
+                suspicious_time: '2026-05-06 18:39:00',
+                fire_time: '2026-05-06 18:40:00'
+            },
+            {
+                device_id: 'XYZ789',
+                floor: '2층',
+                title: '2층 서버실',
+                received_at: '2026-05-06 17:30:22',
+                temp_val: 32,
+                flame_val: 0,
+                suspicious_time: '2026-05-06 18:44:00',
+                fire_time: '2026-05-06 18:45:00'
+            },
+            {
+                device_id: 'QWE111',
+                floor: '2층',
+                title: '2층 회의실',
+                received_at: '2026-05-06 12:00:00',
+                temp_val: 23,
+                flame_val: 0,
+                suspicious_time: '2026-05-06 18:49:00',
+                fire_time: '2026-05-06 18:50:00'
+            }
+        ];
+
+        socket.on('connect', () => {
+            log.textContent += '서버 연결 성공\n';
+        });
+
+        function renderButtons() {
+            sensorGrid.innerHTML = '';
+
+            sensors.forEach((sensor, index) => {
+                sensorGrid.innerHTML += `
+                    <div class="sensor-card">
+                        <div class="sensor-title">${sensor.title}</div>
+                        <div>ID : ${sensor.device_id}</div>
+                        <div>층 : ${sensor.floor}</div>
+                        <div class="input-line">온도(℃)
+                            <input type="number" id="temp-${index}" value="${sensor.temp_val}">
+                        </div>
+                        <div class="input-line">불꽃 감지 여부
+                            <select id="flame-${index}">
+                                <option value="0">미감지</option>
+                                <option value="1">감지</option>
+                            </select>
+                        </div>
+
+                        <button class="heartbeat" onclick="sendHeartbeat(${index})">
+                            생존 신호 보내기
+                        </button>
+
+                        <button class="suspicious" onclick="sendSuspicious(${index})">
+                            화재 의심 보내기
+                        </button>
+
+                        <button class="fire" onclick="sendFire(${index})">
+                            화재 신호 보내기
+                        </button>
+                    </div>
+                `;
+            });
+        }
+
+        function getInputValues(index) {
+            return {
+                temp_val: Number(document.getElementById('temp-' + index).value),
+                flame_val: Number(document.getElementById('flame-' + index).value)
+            };
+        }
+
+        function getNowText() {
+            const d = new Date();
+            const pad = n => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        }
+
+        function sendHeartbeat(index) {
+            const sensor = sensors[index];
+            const input = getInputValues(index);
+
+            const data = {
+                device_id: sensor.device_id,
+                battery_level: 87,
+                signal_strength: -70,
+                received_at: getNowText(),
+                temp_val: input.temp_val,
+                flame_val: input.flame_val
+            };
+
+            socket.emit('gateway-heartbeat', data);
+            log.textContent += '생존 신호 전송 : ' + JSON.stringify(data) + '\n';
+        }
+
+        function sendSuspicious(index) {
+            const sensor = sensors[index];
+            const input = getInputValues(index);
+
+            const data = {
+                device_id: sensor.device_id,
+                floor: sensor.floor,
+                title: sensor.title,
+                temp_val: input.temp_val,
+                flame_val: input.flame_val,
+                detected_time: getNowText()
+            };
+
+            socket.emit('gateway-suspicious', data);
+            log.textContent += '화재 의심 전송 : ' + JSON.stringify(data) + '\n';
+        }
+
+        function sendFire(index) {
+            const sensor = sensors[index];
+            const input = getInputValues(index);
+
+            const data = {
+                device_id: sensor.device_id,
+                floor: sensor.floor,
+                title: sensor.title,
+                flame_val: input.flame_val || 1,
+                gas_val: 40,
+                temp_val: input.temp_val,
+                fire_time: getNowText()
+            };
+
+            socket.emit('gateway-fire', data);
+            log.textContent += '화재 신호 전송 : ' + JSON.stringify(data) + '\n';
+        }
+
+        renderButtons();
+    </script>
+
+</body>
+</html>

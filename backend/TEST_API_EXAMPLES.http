@@ -1,0 +1,81 @@
+### 서버 확인
+GET http://localhost:3000/
+
+
+### 감지기 전체 조회
+GET http://localhost:3000/api/sensors
+
+
+### 감지기 단일 조회
+GET http://localhost:3000/api/sensors/ABC123
+
+
+### 감지기 등록
+POST http://localhost:3000/api/sensors
+Content-Type: application/json
+
+{
+  "device_id": "NEW001",
+  "floor": "3층",
+  "location": "3층 복도",
+  "status": "미수신"
+}
+
+
+### 감지기 전체 수정
+PUT http://localhost:3000/api/sensors/NEW001
+Content-Type: application/json
+
+{
+  "floor": "3층",
+  "location": "3층 회의실",
+  "status": "생존",
+  "flame_val": 0,
+  "gas_val": 0,
+  "temp_val": 25,
+  "battery_level": 90,
+  "signal_strength": -60,
+  "last_received_at": "2026-05-06 18:00:00"
+}
+
+
+### 감지기 일부 수정
+PATCH http://localhost:3000/api/sensors/ABC123
+Content-Type: application/json
+
+{
+  "status": "생존"
+}
+
+
+### 감지기 삭제
+DELETE http://localhost:3000/api/sensors/NEW001
+
+
+### 게이트웨이 생존 신호
+POST http://localhost:3000/api/gateway/heartbeat
+Content-Type: application/json
+
+{
+  "device_id": "ABC123",
+  "battery_level": 87,
+  "signal_strength": -70,
+  "received_at": "2026-05-06 18:30:00"
+}
+
+
+### 게이트웨이 화재 신호
+POST http://localhost:3000/api/gateway/fire
+Content-Type: application/json
+
+{
+  "device_id": "ABC123",
+  "flame_val": 95,
+  "gas_val": 40,
+  "temp_val": 70,
+  "detected_at": "2026-05-06 18:36:22"
+}
+
+
+### 화재 기록 조회
+GET http://localhost:3000/api/fire-records
