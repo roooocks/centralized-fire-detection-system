@@ -81,5 +81,5 @@ IoT 센서의 데이터와 LoRa 통신을 활용한 중앙 집중 화염 감지 
 - 웹 디자인 와이어 프레임 제작
 - Backend CRUD 프로토타입 제작
 - REST API 설계 방향 제시
-- 팀원 대상 CRUD 구조 및 구현 방법 공유
+- 프로토타입 제작 후 팀원 대상 CRUD 구조 및 구현 방법 공유 [프로토타입 링크](https://github.com/roooocks/centralized-fire-detection-system-prototype)
 - DB 설계 검토
