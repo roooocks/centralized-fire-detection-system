@@ -18,6 +18,7 @@ IoT 센서의 데이터와 LoRa 통신을 활용한 중앙 집중 화염 감지 
 ### Backend
 - Node.js
 - Express
+- MQTT
 
 ### Database
 - PostgreSQL
