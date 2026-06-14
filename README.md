@@ -10,6 +10,10 @@ IoT 센서의 데이터와 LoRa 통신을 활용한 중앙 집중 화염 감지 
 
 ## 기술 스택
 
+### AI
+- IoT = Codex
+- 대시보드 = Claude
+
 ### Frontend
 - HTML
 - CSS
@@ -18,7 +22,6 @@ IoT 센서의 데이터와 LoRa 통신을 활용한 중앙 집중 화염 감지 
 ### Backend
 - Node.js
 - Express
-- MQTT
 
 ### Database
 - PostgreSQL
